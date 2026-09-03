@@ -2,15 +2,58 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Internal enterprise app, pinned to light. Suppliers get the Angular portal; neither
+   audience asked for a theme toggle, so there is no dark palette to keep validated. */
 :root {
   color-scheme: light;
+
+  /* Series hues, validated with the dataviz palette validator against the #ffffff card
+     surface: all-pairs CVD dE 9.2, normal-vision dE 24.0. Scope -> slot is fixed, so a
+     filter that drops a scope never repaints the others. Slot 3 (aqua) sits at 2.82:1
+     on white, below 3:1, so every chart using it carries direct labels or a table. */
+  --series-1: #2a78d6; /* Scope 1 */
+  --series-2: #eb6834; /* Scope 2 */
+  --series-3: #1baf7a; /* Scope 3 */
+
+  /* Status colors are reserved - never reused as a fourth series, and never the only
+     signal: each ships with a label. */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  /* Chart chrome, in the app's slate neutrals rather than the reference warm grays. */
+  --grid: #e2e8f0;
+  --axis: #cbd5e1;
+  --ink-muted: #94a3b8;
+  --ink-secondary: #475569;
 }
 
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
 }
 
+button,
+select,
+input {
+  font: inherit;
+}
+
 /* Figures read as columns, not prose. */
 .num {
   font-variant-numeric: tabular-nums;
+}
+
+/* Any figure that opens the lineage drawer. Underline on hover only - a dense table of
+   permanently underlined numbers is unreadable. */
+.drill {
+  @apply cursor-pointer rounded decoration-slate-400 decoration-dotted underline-offset-4
+         transition hover:underline focus:outline-none focus-visible:ring-2
+         focus-visible:ring-sky-600 focus-visible:ring-offset-1;
+}
+
+/* Recharts injects a focus outline on its wrapper; it is not a control. */
+.recharts-wrapper:focus,
+.recharts-surface:focus {
+  outline: none;
 }

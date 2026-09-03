@@ -1,28 +1,38 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-// Phase 0 hello world: proves the Vite -> FastAPI proxy is wired.
-// Replaced by the real shell in Phase 3.
+import { LineageProvider } from './components/LineagePanel'
+import { Shell, type Page } from './components/Shell'
+import { Accounting } from './pages/Accounting'
+import { Dashboard } from './pages/Dashboard'
+import { Factors } from './pages/Factors'
+import type { Role } from './types'
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+})
+
 export default function App() {
-  const [health, setHealth] = useState<string>('checking...')
-
-  useEffect(() => {
-    fetch('/api/v1/health')
-      .then((r) => r.json())
-      .then((d) => setHealth(`${d.app}: ${d.status}`))
-      .catch((e) => setHealth(`unreachable (${e.message})`))
-  }, [])
+  const [page, setPage] = useState<Page>('dashboard')
+  const [role, setRole] = useState<Role>('CSO')
+  const [approvedOnly, setApprovedOnly] = useState(false)
 
   return (
-    <div className="min-h-screen grid place-items-center">
-      <div className="rounded-lg border border-slate-200 bg-white px-8 py-6 shadow-sm">
-        <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-          Nexgile DecarbX
-        </p>
-        <h1 className="mt-1 text-lg font-semibold">Internal enterprise app</h1>
-        <p className="mt-4 text-sm text-slate-600">
-          backend <span className="num font-medium text-slate-900">{health}</span>
-        </p>
-      </div>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <LineageProvider>
+        <Shell
+          activePage={page}
+          approvedOnly={approvedOnly}
+          role={role}
+          onApprovedOnlyChange={setApprovedOnly}
+          onNavigate={setPage}
+          onRoleChange={setRole}
+        >
+          {page === 'dashboard' && <Dashboard approvedOnly={approvedOnly} role={role} />}
+          {page === 'accounting' && <Accounting />}
+          {page === 'factors' && <Factors />}
+        </Shell>
+      </LineageProvider>
+    </QueryClientProvider>
   )
 }
