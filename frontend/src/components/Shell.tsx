@@ -2,10 +2,11 @@ import type { ReactNode } from 'react'
 
 import type { Role } from '../types'
 
-export type Page = 'dashboard' | 'accounting' | 'entry' | 'factors' | 'suppliers'
+export type Page = 'dashboard' | 'accounting' | 'entry' | 'factors' | 'setup' | 'suppliers'
 
 const NAV: { id: Page; label: string; roles: Role[] }[] = [
   { id: 'dashboard', label: 'Overview', roles: ['CSO', 'Procurement', 'CFO', 'Auditor'] },
+  { id: 'setup', label: 'Company setup', roles: ['CSO'] },
   { id: 'accounting', label: 'Carbon accounting', roles: ['CSO', 'Auditor'] },
   { id: 'entry', label: 'Enter activity', roles: ['CSO'] },
   { id: 'factors', label: 'Emission factors', roles: ['CSO', 'Auditor'] },

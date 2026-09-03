@@ -8,6 +8,7 @@ import { Dashboard } from './pages/Dashboard'
 import { ActivityEntry } from './pages/ActivityEntry'
 import { Factors } from './pages/Factors'
 import { Suppliers } from './pages/Suppliers'
+import { CompanySetup } from './pages/CompanySetup'
 import type { Role } from './types'
 
 const queryClient = new QueryClient({
@@ -31,6 +32,7 @@ export default function App() {
           onRoleChange={setRole}
         >
           {page === 'dashboard' && <Dashboard approvedOnly={approvedOnly} role={role} />}
+          {page === 'setup' && <CompanySetup />}
           {page === 'accounting' && <Accounting />}
           {page === 'entry' && <ActivityEntry />}
           {page === 'factors' && <Factors />}

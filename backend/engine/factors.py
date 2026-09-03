@@ -21,6 +21,7 @@ class FactorResolutionError(LookupError):
 # Coarse activity_type -> fine-grained factor category. Where one activity_type can burn
 # more than one fuel, the fuel keyword in the description disambiguates.
 _DIRECT: dict[str, str] = {
+    "supplier_report": "supplier_report",
     "stationary_combustion": "natural_gas",
     "fugitive": "refrigerant_r410a",
     "purchased_electricity": "grid_electricity",

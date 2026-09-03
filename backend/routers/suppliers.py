@@ -9,8 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from database import STORAGE_DIR, get_db
-from models import EvidenceDocument, Supplier, SupplierSubmission
-from schemas import SupplierSubmissionRequest
+from engine import calculator
+from models import ActivityData, EvidenceDocument, Facility, Organization, Supplier, SupplierSubmission
+from schemas import SupplierCreateRequest, SupplierSubmissionRequest
 
 router = APIRouter(prefix="/api/v1/suppliers", tags=["suppliers"])
 
@@ -65,6 +66,19 @@ def list_suppliers(db: Session = Depends(get_db)) -> dict:
     return {"count": len(rows), "rows": [_supplier_out(supplier) for supplier in rows]}
 
 
+@router.post("")
+def create_supplier(req: SupplierCreateRequest, db: Session = Depends(get_db)) -> dict:
+    org = db.scalar(select(Organization))
+    if org is None:
+        raise HTTPException(422, "Create the company and a facility before inviting suppliers")
+    supplier = Supplier(org_id=org.id, name=req.name, country=req.country.upper(), lat=0.0, lon=0.0,
+        tier=1, parent_supplier_id=None, category=req.category, annual_spend=0.0, currency="INR",
+        engagement_status="not_invited", maturity="low", score=0.0, scope3_tco2e=0.0,
+        carbon_intensity=0.0, yoy_change_pct=0.0)
+    db.add(supplier); db.commit()
+    return _supplier_out(supplier)
+
+
 @router.get("/{supplier_id}")
 def supplier_detail(supplier_id: int, db: Session = Depends(get_db)) -> dict:
     supplier = _get_supplier(db, supplier_id)
@@ -82,7 +96,14 @@ def invite(supplier_id: int, db: Session = Depends(get_db)) -> dict:
     if supplier.engagement_status == "not_invited":
         supplier.engagement_status = "invited"
         db.commit()
-    return {"supplier": _supplier_out(supplier), "portal_path": f"/submit/{supplier.id}"}
+    return {"supplier": _supplier_out(supplier), "portal_path": f"/supplier/invite/supplier-{supplier.id}"}
+
+
+@router.get("/invite-token/{token}")
+def invite_detail(token: str, db: Session = Depends(get_db)) -> dict:
+    if not token.startswith("supplier-") or not token.removeprefix("supplier-").isdigit():
+        raise HTTPException(404, "Invalid supplier invitation")
+    return {"supplier": _supplier_out(_get_supplier(db, int(token.removeprefix("supplier-"))))}
 
 
 @router.post("/{supplier_id}/evidence")
@@ -146,5 +167,17 @@ def submit(
     )
     supplier.engagement_status = "submitted"
     db.add(submission)
+    facility = db.scalar(select(Facility).order_by(Facility.id))
+    if facility is None:
+        raise HTTPException(422, "A company facility is required before supplier data can be reported")
+    total_tco2e = req.reported_scope1 + req.reported_scope2 + req.reported_scope3
+    activity = ActivityData(facility_id=facility.id, department_id=None, scope=3, ghg_category=1,
+        activity_type="supplier_report", description=f"Supplier-reported inventory: {supplier.name}",
+        quantity=total_tco2e, unit="tCO2e", period_start=datetime(int(req.period), 1, 1).date(),
+        period_end=datetime(int(req.period), 12, 31).date(), data_source="supplier_primary",
+        data_quality="primary", evidence_id=req.evidence_id, supplier_id=supplier.id, created_at=datetime.utcnow())
+    db.add(activity); db.flush()
+    calculation = calculator.calculate(db, activity, "supplier_specific", f"supplier:{supplier.id}")
+    supplier.scope3_tco2e += total_tco2e
     db.commit()
-    return {"supplier": _supplier_out(supplier), "submission": _submission_out(submission)}
+    return {"supplier": _supplier_out(supplier), "submission": _submission_out(submission), "emission_id": calculation.id}

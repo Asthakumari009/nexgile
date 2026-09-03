@@ -39,6 +39,8 @@ MONTHS = [(y, m) for y in (2024, 2025) for m in range(1, 13)]
 # --------------------------------------------------------------------------- factors
 # (code, name, scope, category, unit, kgco2e, source, version, from, to, unc, region, method)
 FACTORS = [
+    ("EF-SUPPLIER-REPORT", "Supplier-reported inventory", 3, "supplier_report", "tCO2e", 1000.0,
+     "Supplier attestation", "v1", "2023-01-01", "2026-12-31", 15.0, None, None),
     ("EF-NG-01", "Natural gas, stationary", 1, "natural_gas", "m3", 2.02,
      "DEFRA 2024", "v1", "2023-01-01", "2026-12-31", 3.0, None, None),
     ("EF-DSL-01", "Diesel, mobile", 1, "diesel", "litre", 2.68,

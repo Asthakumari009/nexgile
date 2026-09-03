@@ -65,3 +65,9 @@ class FacilityCreateRequest(BaseModel):
 
 class ResetDemoRequest(BaseModel):
     confirmation: str
+
+
+class SupplierCreateRequest(BaseModel):
+    name: str = Field(min_length=2)
+    country: str = Field(min_length=2, max_length=2)
+    category: str = Field(min_length=2)
