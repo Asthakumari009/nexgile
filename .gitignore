@@ -1,0 +1,13 @@
+node_modules/
+.venv/
+__pycache__/
+*.py[cod]
+dist/
+.angular/
+*.db
+storage/
+.*.log
+.ng-scaffold.log
+.backend.log
+.vite.log
+.ng.log
