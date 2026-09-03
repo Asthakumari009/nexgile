@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select
 
 from database import Base, STORAGE_DIR, SessionLocal, engine
-from engine import calculator, factors, units
+from engine import calculator, units
 from models import (
     ActivityData,
     BomItem,
@@ -35,11 +35,6 @@ from models import (
 
 RNG_SEED = 20240101
 MONTHS = [(y, m) for y in (2024, 2025) for m in range(1, 13)]
-
-# Only Hyderabad holds renewable certificates, so only it gets a near-zero market-based
-# factor. Every other site falls back to the grid factor as a residual-mix proxy.
-REC_FACILITIES = {"Hyderabad Plant"}
-
 
 # --------------------------------------------------------------------------- factors
 # (code, name, scope, category, unit, kgco2e, source, version, from, to, unc, region, method)
@@ -578,13 +573,9 @@ def _run_calculations(db, activities: list[ActivityData]) -> None:
         if a.activity_type == "purchased_electricity":
             calculator.calculate(db, a, "location_based", "system.seed", at=at)
 
-            if a.facility.name in REC_FACILITIES:
-                calculator.calculate(db, a, "market_based", "system.seed", at=at)
-            else:
-                # No contractual instrument at this site: GHG Protocol falls back to the
-                # residual mix, proxied here by the grid factor. Still reported separately.
-                loc = factors.resolve_for_activity(db, a, method="location_based")
-                calculator.calculate(db, a, "market_based", "system.seed", factor=loc, at=at)
+            # Which sites hold a contractual instrument is decided by the resolver, so
+            # recalculation later reaches the same answer. See engine/factors.py.
+            calculator.calculate(db, a, "market_based", "system.seed", at=at)
         else:
             calculator.calculate(db, a, _methodology_for(a), "system.seed", at=at)
 

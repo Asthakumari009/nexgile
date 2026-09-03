@@ -93,9 +93,20 @@ def resolve(
     return candidates[0]
 
 
+# Holding a contractual instrument is a fact about the site, not about the factor
+# library, so market-based eligibility has to be resolved here. If it lived only in the
+# seed, every later recalculation would silently hand a REC factor to a site that holds
+# no certificate.
+REC_FACILITIES = {"Hyderabad Plant"}
+
+
 def resolve_for_activity(
     db: Session, activity: ActivityData, method: str | None = None
 ) -> EmissionFactor:
+    if method == "market_based" and activity.facility.name not in REC_FACILITIES:
+        # No instrument at this site: GHG Protocol falls back to the residual mix,
+        # proxied here by the location-based grid factor. Still reported separately.
+        method = "location_based"
     return resolve(
         db,
         scope=activity.scope,
