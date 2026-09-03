@@ -1,0 +1,19 @@
+# Render blueprint for the FastAPI backend.
+# The two frontends deploy to Vercel separately - see frontend/vercel.json and
+# portal/vercel.json.
+services:
+  - type: web
+    name: nexgile-decarbx-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      # Only needed if a frontend calls the API cross-origin instead of through its
+      # Vercel rewrite. *.vercel.app is already allowed by regex in main.py.
+      - key: ALLOWED_ORIGINS
+        sync: false
