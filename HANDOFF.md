@@ -4,7 +4,7 @@
 
 **Update rule:** this file is rewritten as part of every phase commit. If the timestamp below is older than the last git commit, do not trust the state section — run the verification commands and rebuild the picture yourself.
 
-Last updated: Phase 2 partial — lineage endpoint done, repo made deploy-ready
+Last updated: Phase 6 complete — product/PCF, scenarios, readiness, and finance added
 Deadline: 3 hours total from start. Track remaining time before choosing what to cut.
 
 ---
@@ -47,7 +47,7 @@ Totals (recheck these after any seed change):
 
 Emissions are near-flat year on year by design, so the target trajectory shows a real gap to close.
 
-**Phase 2 — routers. Partially done.** `GET /api/v1/emissions/{id}/lineage` is complete and verified; it was built first and alone, before any other router, because everything else hangs off it.
+**Phases 2-6 — complete for the demo slice.** The lineage endpoint remains the core feature; the internal React dashboard, accounting table, manual activity flow, factor impact workflow, Angular supplier portal, supplier directory, product-PCF screening views, in-memory scenarios, disclosure-readiness cards, and carbon-finance surface are now implemented.
 
 - `engine/lineage.py` reconstructs the chain purely from what the calculator recorded. Nothing is recomputed, so a superseded factor still shows the version that actually produced the number.
 - Chain: `reported_value → calculation → unit_conversion → emission_factor → activity_data → evidence → approval`
@@ -63,9 +63,9 @@ Emissions are near-flat year on year by design, so the target trajectory shows a
 
 ## State: what is not done
 
-**Both UIs are still scaffolding.** They health-check the API and render nothing else. Anyone deploying this right now gets a working API and two near-empty pages — do not describe it as a demoable product yet.
+This is demoable, but remains deliberately scoped. Supplier-network visualisation, a production-grade PCF study, scenario persistence, legal compliance determinations, real disclosure generation, authentication, tenant isolation, ERP/OCR connectors, licensed factors, and durable production storage are not implemented.
 
-Remaining Phase 2 routers: org, activities, factors, calculations, emissions summary, analytics, suppliers, products, scenarios, compliance, finance, supplier portal. Then Phase 3 (React dashboard/accounting/lineage panel), Phase 4 (Angular supplier portal), Phase 5 (suppliers, products/PCF, scenarios), Phase 6 (compliance + finance cards). See `CLAUDE.md` section 9 for time boxes and cut order.
+The newer Product/PCF, Scenario, Compliance, and Finance routes are read-only or in-memory decision support. Product manufacturing/logistics/end-of-life stages are visibly labelled screening proxies. Compliance values are data-readiness indicators, not legal conclusions. Scenarios cannot write to `emissions` or `calculations`.
 
 ## Verification — run these before trusting anything
 
@@ -73,6 +73,8 @@ Remaining Phase 2 routers: org, activities, factors, calculations, emissions sum
 cd backend && python verify_phase1.py     # rebuilds DB and re-asserts all invariants
 ./run.sh                                  # all three servers
 curl localhost:8000/api/v1/emissions/37/lineage
+npm --prefix frontend run build
+npm --prefix portal run build
 ```
 
 `verify_phase1.py` asserts twelve invariants:
@@ -101,9 +103,9 @@ curl localhost:8000/api/v1/emissions/37/lineage
 
 ## Known risks
 
-- Angular scaffold and first build are slow. If resuming mid-build, check `portal/` actually compiles before assuming Phase 4 is startable.
-- Phase 4 (Angular) outranks Phases 5 and 6. Two working frontends is an explicit client requirement; the Products, Scenarios, and Compliance pages are not. If behind, cut the portal to two routes (invite, submit) rather than dropping it.
-- If Phase 3 is not done by the 1:55 mark, stop adding pages and polish the dashboard and lineage panel only.
+- Product footprint manufacturing, distribution, and end-of-life stages are screening proxies. Do not describe their values as an ISO 14067-certified product study.
+- Readiness values and CSV exports are preparation aids, not CSRD, CBAM, TCFD, SEC, CDP, or EU Taxonomy compliance findings.
+- Scenario results are deterministic screening ranges, not a validated Monte Carlo model, and must never be presented as reported actuals.
 - **Open gap:** emission 38's market-based claim rests on the REC certificate, but the lineage shows the electricity invoice, because `evidence_id` lives on `activity_data` and both calculations share one activity. `REC_Certificate_FY2025_Hyderabad.pdf` is seeded but unreferenced. Linking evidence per calculation needs a schema change — decide whether it is worth it before an auditor-minded evaluator asks.
 - **Deploy placeholder:** `frontend/vercel.json` and `portal/vercel.json` both contain `REPLACE-WITH-YOUR-RENDER-URL.onrender.com`. Both must be edited before a Vercel deploy will reach the API.
 - **Render Root Directory must be blank.** The blueprint originally used `rootDir: backend`, which did not apply and failed the build with `Could not open requirements file`. Everything is now repo-root relative: a root `requirements.txt` shims to `backend/requirements.txt`, and the start command uses `uvicorn --app-dir backend`. Setting Root Directory to `backend` re-breaks it.
@@ -111,4 +113,4 @@ curl localhost:8000/api/v1/emissions/37/lineage
 
 ## Honesty constraint
 
-The README must carry a plain "Scope and honest limitations" section stating what is implemented, what is stubbed (ERP connectors, OCR, XBRL, real i18n, tenant isolation), and that emission factors are publicly-cited approximations rather than a licensed library. Do not let any assistant generate marketing copy claiming CBAM or CSRD compliance that was not built. One caught overclaim discounts the whole build. The README currently states plainly that both UIs are scaffolding — keep that accurate as they get built.
+The README carries a plain "Scope and honest limitations" section stating what is implemented, what is stubbed (ERP connectors, OCR, XBRL, real i18n, tenant isolation), and that emission factors are publicly-cited approximations rather than a licensed library. Do not let any assistant generate marketing copy claiming CBAM or CSRD compliance that was not built. One caught overclaim discounts the whole build.

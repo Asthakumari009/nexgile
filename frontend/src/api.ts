@@ -21,6 +21,13 @@ import type {
   SummaryRow,
   Supplier,
   Totals,
+  ComplianceRow,
+  FinanceSummary,
+  Product,
+  ProductAlternatives,
+  ProductBom,
+  ProductPcf,
+  ScenarioResult,
 } from './types'
 
 const BASE = '/api/v1'
@@ -153,6 +160,24 @@ export const useSuppliers = () =>
     queryFn: () => get<{ rows: Supplier[] }>('/suppliers').then((r) => r.rows),
   })
 
+export const useProducts = () =>
+  useQuery({ queryKey: ['products'], queryFn: () => get<{ rows: Product[] }>('/products').then((r) => r.rows) })
+
+export const useProductBom = (productId: number | null) =>
+  useQuery({ queryKey: ['product-bom', productId], queryFn: () => get<ProductBom>(`/products/${productId}/bom`), enabled: productId !== null })
+
+export const useProductPcf = (productId: number | null) =>
+  useQuery({ queryKey: ['product-pcf', productId], queryFn: () => get<ProductPcf>(`/products/${productId}/pcf`), enabled: productId !== null })
+
+export const useProductAlternatives = (productId: number | null) =>
+  useQuery({ queryKey: ['product-alternatives', productId], queryFn: () => get<ProductAlternatives>(`/products/${productId}/alternatives`), enabled: productId !== null })
+
+export const useCompliance = () =>
+  useQuery({ queryKey: ['compliance'], queryFn: () => get<{ rows: ComplianceRow[] }>('/compliance/readiness').then((r) => r.rows) })
+
+export const useFinance = (carbonPrice: number) =>
+  useQuery({ queryKey: ['finance', carbonPrice], queryFn: () => get<FinanceSummary>('/finance/summary', { carbon_price: carbonPrice }) })
+
 export const useFactorVersions = (factorId: number | null) =>
   useQuery({
     queryKey: ['factor-versions', factorId],
@@ -195,6 +220,9 @@ export const useRecalculate = () =>
   useEmissionMutation(({ factorId, actor }: { factorId: number; actor: string }) =>
     post<RecalcResult>('/calculations/recalculate', { factor_id: factorId, actor })
   )
+
+export const useScenario = () =>
+  useMutation({ mutationFn: (args: { renewable_electricity_pct: number; recycled_material_pct: number; freight_mode_shift_pct: number; supplier_switch_pct: number }) => post<ScenarioResult>('/scenarios', args) })
 
 // ------------------------------------------------------------------- format
 export const fmt = (n: number | null | undefined, digits = 1) =>

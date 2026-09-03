@@ -9,6 +9,10 @@ import { ActivityEntry } from './pages/ActivityEntry'
 import { Factors } from './pages/Factors'
 import { Suppliers } from './pages/Suppliers'
 import { CompanySetup } from './pages/CompanySetup'
+import { Compliance } from './pages/Compliance'
+import { Finance } from './pages/Finance'
+import { Products } from './pages/Products'
+import { Scenarios } from './pages/Scenarios'
 import type { Role } from './types'
 
 const queryClient = new QueryClient({
@@ -37,6 +41,10 @@ export default function App() {
           {page === 'entry' && <ActivityEntry />}
           {page === 'factors' && <Factors />}
           {page === 'suppliers' && <Suppliers />}
+          {page === 'products' && <Products />}
+          {page === 'scenarios' && <Scenarios />}
+          {page === 'compliance' && <Compliance />}
+          {page === 'finance' && <Finance />}
         </Shell>
       </LineageProvider>
     </QueryClientProvider>

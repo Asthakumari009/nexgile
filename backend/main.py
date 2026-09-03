@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from database import Base, STORAGE_DIR, engine
-from routers import activities, analytics, calculations, emissions, factors, org, suppliers
+from routers import activities, analytics, calculations, compliance, emissions, factors, finance, org, products, scenarios, suppliers
 from schemas import ResetDemoRequest
 from seed import bootstrap_reference_data
 
@@ -43,7 +43,8 @@ app.mount("/storage", StaticFiles(directory=STORAGE_DIR), name="storage")
 
 
 for _router in (org.router, activities.router, factors.router, calculations.router,
-                emissions.router, analytics.router, suppliers.router):
+                emissions.router, analytics.router, suppliers.router, products.router,
+                scenarios.router, compliance.router, finance.router):
     app.include_router(_router)
 
 

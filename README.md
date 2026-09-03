@@ -8,8 +8,8 @@ source document → approval. Nothing in that chain is recomputed for display; i
 reconstructed from what the calculation engine recorded at the time.
 
 > **Build status:** The internal React dashboard, audit-lineage drawer, accounting table,
-> factor-impact preview, and Angular supplier submission portal are working. Products,
-> scenarios, compliance, and finance remain deliberately out of scope for this demo slice.
+> factor-impact preview, product-PCF screening views, scenario modelling, readiness indicators,
+> carbon-finance view, and Angular supplier submission portal are working.
 
 ---
 
@@ -149,10 +149,14 @@ is and is not real:
 - Filterable activity accounting table and a read-only emission-factor impact preview
 - Angular supplier portal with organisation selection, evidence upload, authorised attestation, submission, and pending-review status
 - Supplier API endpoints for directory lookup, evidence storage, and validated submissions
+- Product PCF screening views from the seeded BOM and versioned factor library, including a virgin-versus-recycled aluminium comparison
+- In-memory abatement scenarios with transparent assumptions and an explicit approved-actuals-unchanged safeguard
+- Data-readiness indicators and CSV exports for six disclosure frameworks. These are not compliance determinations.
+- Carbon budget, internal-price exposure, offsets, and marginal-abatement views derived from the reporting inventory and seeded levers
 
 **Not built**
 
-- Supplier scorecards and network views, PCF and BOM rollup, scenario modelling, compliance readiness, and carbon finance
+- Supplier network visualisation and production-grade product lifecycle studies
 
 **Deliberately out of scope**
 
@@ -181,6 +185,11 @@ methodology.
 ```
 GET  /api/v1/health
 GET  /api/v1/emissions/{id}/lineage      the key endpoint
+GET  /api/v1/products + /{id}/bom + /{id}/pcf + /{id}/alternatives
+POST /api/v1/scenarios                   in-memory only; approved actuals unchanged
+GET  /api/v1/compliance/readiness        data readiness, not a compliance conclusion
+GET  /api/v1/compliance/{framework}/export
+GET  /api/v1/finance/summary
 GET  /storage/{filename}                 evidence documents
 GET  /docs                               interactive API docs
 ```

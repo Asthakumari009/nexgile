@@ -293,3 +293,71 @@ export interface Supplier {
   carbon_intensity: number
   yoy_change_pct: number
 }
+
+export interface Product {
+  id: number
+  sku: string
+  name: string
+  category: string
+  functional_unit: string
+  boundary: string
+  status: string
+  pcf_kgco2e: number
+}
+
+export interface ProductBom {
+  product: Product
+  rows: { id: number; parent_bom_item_id: number | null; component_name: string; material: string; mass_kg: number; quantity: number; kgco2e: number; factor: { code: string; version: string; value_kgco2e: number } | null }[]
+}
+
+export interface ProductPcf {
+  product: Product
+  stages: { stage: string; kgco2e: number; method: string }[]
+  total_kgco2e: number
+  uncertainty_pct: number
+  verification_status: string
+  assumptions: string[]
+}
+
+export interface ProductAlternatives {
+  product: Product
+  candidate_count: number
+  current_kgco2e: number
+  alternative_kgco2e: number
+  delta_kgco2e: number
+  reduction_pct: number
+  current_factor: { code: string; value_kgco2e: number }
+  alternative_factor: { code: string; value_kgco2e: number }
+  note: string
+}
+
+export interface ScenarioResult {
+  baseline_tco2e: number
+  result_tco2e: number
+  avoided_tco2e: number
+  reduction_pct: number
+  reductions: { lever: string; tco2e: number }[]
+  range: { p5_tco2e: number; p50_tco2e: number; p95_tco2e: number }
+  actuals_unchanged: boolean
+  assumptions: string[]
+}
+
+export interface ComplianceRow {
+  framework: string
+  name: string
+  readiness_pct: number
+  met: string[]
+  unmet: string[]
+  disclaimer: string
+}
+
+export interface FinanceSummary {
+  year: number
+  carbon_price: number
+  total_actual_tco2e: number
+  internal_price_exposure: number
+  budget: { entity: string; actual_tco2e: number; budget_tco2e: number; variance_tco2e: number }[]
+  levers: { id: number; name: string; category: string; potential_tco2e: number; capex: number; opex_delta: number; payback_years: number; status: string; owner: string; cost_per_tco2e: number }[]
+  offsets: { project_name: string; registry: string; vintage: number; tonnes: number; price_per_tonne: number; status: string }[]
+  note: string
+}
