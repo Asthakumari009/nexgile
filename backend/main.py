@@ -59,5 +59,8 @@ def reset_demo_data(req: ResetDemoRequest) -> dict:
         return {"reset": False, "detail": "Send confirmation DELETE_DEMO_DATA to reset"}
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
+    for path in STORAGE_DIR.iterdir():
+        if path.is_file():
+            path.unlink()
     bootstrap_reference_data()
     return {"reset": True, "detail": "Operational data cleared; reference factors retained"}
