@@ -19,6 +19,7 @@ import type {
   RecalcResult,
   Scope2Dual,
   SummaryRow,
+  Supplier,
   Totals,
 } from './types'
 
@@ -144,6 +145,12 @@ export const useFactors = () =>
   useQuery({
     queryKey: ['factors'],
     queryFn: () => get<{ rows: Factor[] }>('/factors').then((r) => r.rows),
+  })
+
+export const useSuppliers = () =>
+  useQuery({
+    queryKey: ['suppliers'],
+    queryFn: () => get<{ rows: Supplier[] }>('/suppliers').then((r) => r.rows),
   })
 
 export const useFactorVersions = (factorId: number | null) =>

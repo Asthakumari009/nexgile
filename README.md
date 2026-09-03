@@ -7,10 +7,9 @@ calculation formula → unit conversion → versioned emission factor → activi
 source document → approval. Nothing in that chain is recomputed for display; it is
 reconstructed from what the calculation engine recorded at the time.
 
-> **Build status:** Phases 0–1 complete and verified. Phase 2 in progress — the lineage
-> endpoint is done; the remaining routers and both UIs are not. See `HANDOFF.md` for the
-> current state and `CLAUDE.md` for the full spec. **The two frontends are currently
-> scaffolding that health-checks the API, not finished screens.**
+> **Build status:** The internal React dashboard, audit-lineage drawer, accounting table,
+> factor-impact preview, and Angular supplier submission portal are working. Products,
+> scenarios, compliance, and finance remain deliberately out of scope for this demo slice.
 
 ---
 
@@ -122,15 +121,9 @@ on the import path. The app resolves its own paths from `__file__`, so the worki
 directory does not matter. If Root Directory is set to `backend`, the build fails with
 `Could not open requirements file`.
 
-**Frontends (Vercel).** Create two projects from the same repo, with **Root Directory**
-set to `frontend` and `portal` respectively. Each has its own `vercel.json`.
-
-⚠️ **One required edit before deploying.** Both `frontend/vercel.json` and
-`portal/vercel.json` contain the placeholder `REPLACE-WITH-YOUR-RENDER-URL.onrender.com`.
-Replace it with your actual Render URL in both files. Those rewrites proxy `/api` and
-`/storage` to the backend, which keeps the frontends same-origin and means no CORS
-configuration is needed. If you instead call the API cross-origin, `main.py` already
-allows any `*.vercel.app` origin, and `ALLOWED_ORIGINS` accepts a comma-separated list.
+**Frontends (Vercel).** The root `vercel.json` builds the internal React app from
+`frontend/`, including the `/api` and `/storage` rewrites to Render. Deploy the Angular
+supplier portal as a separate project with Root Directory set to `portal`.
 
 **Render free tier note.** The filesystem is ephemeral, so `decarbx.db` and `./storage/`
 are rebuilt on every restart and cold start. Because the seed is fully deterministic this
@@ -152,12 +145,14 @@ is and is not real:
 - Factor versioning with supersede-not-overwrite semantics
 - Full lineage endpoint, verified against every interesting case including superseded factors, unapproved drafts and missing evidence
 - Evidence PDFs generated from the seeded quantities and sha256-verified, so the document states the number the calculation consumed
+- Internal React dashboard with scope, trend, hotspot, anomaly, and data-quality views; reported figures open their audit lineage
+- Filterable activity accounting table and a read-only emission-factor impact preview
+- Angular supplier portal with organisation selection, evidence upload, authorised attestation, submission, and pending-review status
+- Supplier API endpoints for directory lookup, evidence storage, and validated submissions
 
 **Not built**
 
-- Both UIs are scaffolding at present. The React internal app and the Angular supplier portal health-check the API and render nothing else yet.
-- Remaining Phase 2 routers: org, activities, factors, calculations, emissions summary, analytics, suppliers, products, scenarios, compliance, finance, supplier portal
-- CSV import, approval workflow UI, anomaly and forecast analytics, PCF and BOM rollup, scenario modelling, compliance readiness, carbon finance
+- Supplier scorecards and network views, PCF and BOM rollup, scenario modelling, compliance readiness, and carbon finance
 
 **Deliberately out of scope**
 

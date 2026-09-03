@@ -5,7 +5,9 @@ import { LineageProvider } from './components/LineagePanel'
 import { Shell, type Page } from './components/Shell'
 import { Accounting } from './pages/Accounting'
 import { Dashboard } from './pages/Dashboard'
+import { ActivityEntry } from './pages/ActivityEntry'
 import { Factors } from './pages/Factors'
+import { Suppliers } from './pages/Suppliers'
 import type { Role } from './types'
 
 const queryClient = new QueryClient({
@@ -30,7 +32,9 @@ export default function App() {
         >
           {page === 'dashboard' && <Dashboard approvedOnly={approvedOnly} role={role} />}
           {page === 'accounting' && <Accounting />}
+          {page === 'entry' && <ActivityEntry />}
           {page === 'factors' && <Factors />}
+          {page === 'suppliers' && <Suppliers />}
         </Shell>
       </LineageProvider>
     </QueryClientProvider>

@@ -274,3 +274,22 @@ export interface RecalcResult {
     new_tco2e: number
   }[]
 }
+
+export interface Supplier {
+  id: number
+  name: string
+  country: string
+  lat: number
+  lon: number
+  tier: number
+  parent_supplier_id: number | null
+  category: string
+  annual_spend: number
+  currency: string
+  engagement_status: 'not_invited' | 'invited' | 'in_progress' | 'submitted' | 'validated'
+  maturity: 'low' | 'developing' | 'advanced'
+  score: number
+  scope3_tco2e: number
+  carbon_intensity: number
+  yoy_change_pct: number
+}

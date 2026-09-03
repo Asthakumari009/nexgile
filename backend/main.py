@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from database import STORAGE_DIR
-from routers import activities, analytics, calculations, emissions, factors, org
+from routers import activities, analytics, calculations, emissions, factors, org, suppliers
 from seed import seed_if_empty
 
 app = FastAPI(title="Nexgile DecarbX", version="0.1.0")
@@ -42,7 +42,7 @@ app.mount("/storage", StaticFiles(directory=STORAGE_DIR), name="storage")
 
 
 for _router in (org.router, activities.router, factors.router, calculations.router,
-                emissions.router, analytics.router):
+                emissions.router, analytics.router, suppliers.router):
     app.include_router(_router)
 
 

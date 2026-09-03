@@ -10,13 +10,68 @@ from sqlalchemy.orm import Session
 
 from database import SessionLocal, get_db
 from engine import calculator
-from models import ActivityData, Calculation, Emission, Facility
+from models import ActivityData, Calculation, Emission, EvidenceDocument, Facility
+from schemas import ActivityCreateRequest
 
 router = APIRouter(prefix="/api/v1/activities", tags=["activities"])
 
 # In-memory import jobs. Restarting the API loses them, which is correct for a demo -
 # a real build would persist these. ponytail: dict, swap for a table if jobs must survive.
 JOBS: dict[str, dict] = {}
+
+
+@router.post("/evidence")
+async def upload_evidence(file: UploadFile = File(...), db: Session = Depends(get_db)) -> dict:
+    """Store a factory-manager source document before it is linked to activity data."""
+    from hashlib import sha256
+    from pathlib import Path
+    from database import STORAGE_DIR
+
+    if not file.filename:
+        raise HTTPException(400, "An evidence filename is required")
+    content = await file.read()
+    if not content or len(content) > 10 * 1024 * 1024:
+        raise HTTPException(400, "Evidence must be between 1 byte and 10 MB")
+    filename = Path(file.filename).name
+    stored = f"activity-{uuid.uuid4().hex[:10]}-{filename}"
+    path = STORAGE_DIR / stored
+    path.write_bytes(content)
+    document = EvidenceDocument(filename=filename, doc_type="invoice", uploaded_by="factory.manager",
+        uploaded_at=datetime.utcnow(), sha256=sha256(content).hexdigest(), file_path=str(path), page_ref=None,
+        notes="Uploaded during manual activity entry")
+    db.add(document)
+    db.commit()
+    return {"id": document.id, "filename": filename, "url": f"/storage/{stored}"}
+
+
+@router.post("")
+def create_activity(req: ActivityCreateRequest, db: Session = Depends(get_db)) -> dict:
+    """Create one activity and its recorded calculations for the manual-entry flow."""
+    facility = db.get(Facility, req.facility_id)
+    if facility is None:
+        raise HTTPException(404, f"No facility with id {req.facility_id}")
+    if req.evidence_id is not None and db.get(EvidenceDocument, req.evidence_id) is None:
+        raise HTTPException(422, f"No evidence document with id {req.evidence_id}")
+    try:
+        activity = ActivityData(facility_id=req.facility_id, scope=req.scope, ghg_category=None,
+            activity_type=req.activity_type, description=req.description, quantity=req.quantity, unit=req.unit,
+            period_start=date.fromisoformat(req.period_start), period_end=date.fromisoformat(req.period_end),
+            data_source=req.data_source, data_quality=req.data_quality, evidence_id=req.evidence_id,
+            supplier_id=None, created_at=datetime.utcnow())
+    except ValueError as exc:
+        raise HTTPException(422, f"Invalid reporting date: {exc}") from exc
+    db.add(activity)
+    db.flush()
+    try:
+        methods = ["location_based", "market_based"] if activity.activity_type == "purchased_electricity" else [_default_methodology(activity)]
+        calculations = [calculator.calculate(db, activity, method, "factory.manager") for method in methods]
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(422, f"Calculation could not be completed: {exc}") from exc
+    emissions = [db.scalar(select(Emission).where(Emission.calculation_id == calc.id)) for calc in calculations]
+    return {"activity_id": activity.id, "calculation_ids": [calc.id for calc in calculations],
+            "emission_ids": [emission.id for emission in emissions if emission is not None]}
 
 REQUIRED_COLUMNS = ("facility", "scope", "activity_type", "description",
                     "quantity", "unit", "period_start", "period_end",
