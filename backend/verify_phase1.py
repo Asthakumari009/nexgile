@@ -246,7 +246,22 @@ def main() -> None:
     print(f"  [ok] all {len(linked)} evidence PDFs state the exact activity quantity "
           f"and match their stored sha256")
 
-    # 11. Data quality is mixed, so the confidence badges are not uniformly green.
+    # 11. Audit timestamps are period-relative, not the moment the seed ran. A 2024
+    #     record approved with today's date reads as fabricated.
+    from datetime import timedelta
+    for c in calcs:
+        end = c.activity.period_end
+        assert c.created_at.date() > end, (c.id, c.created_at, end)
+        assert c.created_at.date() < end + timedelta(days=45), (c.id, c.created_at, end)
+        if c.approved_at:
+            assert c.approved_at > c.created_at, (c.id, c.approved_at, c.created_at)
+            assert c.approved_at.date() < end + timedelta(days=60), (c.id, c.approved_at)
+    oldest = min(c.approved_at for c in calcs if c.approved_at)
+    newest = max(c.approved_at for c in calcs if c.approved_at)
+    print(f"  [ok] audit timestamps track their period: approvals span "
+          f"{oldest:%Y-%m-%d} to {newest:%Y-%m-%d}")
+
+    # 12. Data quality is mixed, so the confidence badges are not uniformly green.
     mix = defaultdict(int)
     for a in activities:
         mix[a.data_quality] += 1

@@ -560,28 +560,42 @@ def _write_evidence_files(db, evidence: dict, activities: list[ActivityData]) ->
     db.flush()
 
 
+def _closed_at(activity: ActivityData) -> datetime:
+    """When the books were closed for that period - four days after the period ends.
+
+    Seeded history must carry period-relative timestamps, not the moment the seed ran, or
+    a 2024 record shows an approval dated today and the audit trail reads as fabricated.
+    """
+    return datetime.combine(activity.period_end, datetime.min.time()) + timedelta(
+        days=4, hours=10, minutes=12
+    )
+
+
 def _run_calculations(db, activities: list[ActivityData]) -> None:
     """Run the engine over every activity. Scope 2 gets dual location/market reporting."""
     for a in activities:
+        at = _closed_at(a)
         if a.activity_type == "purchased_electricity":
-            calculator.calculate(db, a, "location_based", "system.seed")
+            calculator.calculate(db, a, "location_based", "system.seed", at=at)
 
             if a.facility.name in REC_FACILITIES:
-                calculator.calculate(db, a, "market_based", "system.seed")
+                calculator.calculate(db, a, "market_based", "system.seed", at=at)
             else:
                 # No contractual instrument at this site: GHG Protocol falls back to the
                 # residual mix, proxied here by the grid factor. Still reported separately.
                 loc = factors.resolve_for_activity(db, a, method="location_based")
-                calculator.calculate(db, a, "market_based", "system.seed", factor=loc)
+                calculator.calculate(db, a, "market_based", "system.seed", factor=loc, at=at)
         else:
-            calculator.calculate(db, a, _methodology_for(a), "system.seed")
+            calculator.calculate(db, a, _methodology_for(a), "system.seed", at=at)
 
     # Everything up to Sep 2025 is signed off; the tail stays in draft so the approval
     # workflow and the "approved only" toggle both have something to show.
     from models import Calculation
     for calc in db.scalars(select(Calculation)):
         if calc.activity.period_start <= date(2025, 9, 30):
-            calculator.approve(db, calc, "s.mehta")
+            # Reviewed two days after the calculation was run.
+            calculator.approve(db, calc, "s.mehta",
+                               at=calc.created_at + timedelta(days=2, hours=1, minutes=14))
     db.flush()
 
 

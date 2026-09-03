@@ -34,7 +34,7 @@ def _allocation(activity: ActivityData) -> tuple[str, float]:
     return _CONSOLIDATION_BASIS.get(method, method), pct
 
 
-def _fmt(value: float) -> str:
+def fmt_number(value: float) -> str:
     """Human-readable number for the formula string shown verbatim in the lineage panel."""
     if value == int(value) and abs(value) < 1e15:
         return f"{int(value):,}"
@@ -51,6 +51,7 @@ def calculate(
     *,
     factor: EmissionFactor | None = None,
     calc_version: int = 1,
+    at: datetime | None = None,
 ) -> Calculation:
     """Run the full chain for one activity row and write the calculation + emission."""
     # 1. Resolve factor (version-aware, region-aware, method-aware).
@@ -66,7 +67,7 @@ def calculate(
     result_kgco2e = converted * factor.value_kgco2e * (allocation_pct / 100.0)
 
     # 4. Record the formula verbatim.
-    formula = f"{_fmt(converted)} {factor.unit} x {factor.value_kgco2e} kgCO2e/{factor.unit}"
+    formula = f"{fmt_number(converted)} {factor.unit} x {factor.value_kgco2e} kgCO2e/{factor.unit}"
     if allocation_pct != 100.0:
         formula += f" x {allocation_pct:g}% ({basis})"
 
@@ -91,7 +92,9 @@ def calculate(
         calc_version=calc_version,
         status="draft",
         created_by=actor,
-        created_at=datetime.utcnow(),
+        # Seeded history passes the date the books were actually closed for that period;
+        # live calls fall back to now.
+        created_at=at or datetime.utcnow(),
     )
     db.add(calc)
     db.flush()
@@ -114,10 +117,11 @@ def calculate(
     return calc
 
 
-def approve(db: Session, calc: Calculation, actor: str) -> Calculation:
+def approve(db: Session, calc: Calculation, actor: str,
+            at: datetime | None = None) -> Calculation:
     calc.status = "approved"
     calc.approved_by = actor
-    calc.approved_at = datetime.utcnow()
+    calc.approved_at = at or datetime.utcnow()
     db.flush()
     return calc
 
