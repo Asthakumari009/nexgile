@@ -5,9 +5,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from database import STORAGE_DIR
+from database import Base, STORAGE_DIR, engine
 from routers import activities, analytics, calculations, emissions, factors, org, suppliers
-from seed import seed_if_empty
+from schemas import ResetDemoRequest
+from seed import bootstrap_reference_data
 
 app = FastAPI(title="Nexgile DecarbX", version="0.1.0")
 
@@ -32,7 +33,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 def _startup() -> None:
-    seed_if_empty()
+    bootstrap_reference_data()
     STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -49,3 +50,14 @@ for _router in (org.router, activities.router, factors.router, calculations.rout
 @app.get("/api/v1/health")
 def health() -> dict:
     return {"status": "ok", "app": "decarbx"}
+
+
+@app.post("/api/v1/admin/reset")
+def reset_demo_data(req: ResetDemoRequest) -> dict:
+    """Demo-only destructive reset, deliberately guarded by an explicit confirmation."""
+    if req.confirmation != "DELETE_DEMO_DATA":
+        return {"reset": False, "detail": "Send confirmation DELETE_DEMO_DATA to reset"}
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
+    bootstrap_reference_data()
+    return {"reset": True, "detail": "Operational data cleared; reference factors retained"}

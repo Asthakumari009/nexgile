@@ -681,6 +681,21 @@ def seed_if_empty() -> None:
             seed(db)
 
 
+def bootstrap_reference_data() -> None:
+    """Create only the calculation reference catalogue, never demo operational data."""
+    Base.metadata.create_all(engine)
+    with SessionLocal() as db:
+        if db.scalar(select(EmissionFactor)) is None:
+            for row in FACTORS:
+                code, name, scope, cat, unit, val, src, ver, vf, vt, unc, region, method = row
+                db.add(EmissionFactor(code=code, name=name, scope=scope, category=cat, unit=unit,
+                    value_kgco2e=val, source=src, version=ver, valid_from=date.fromisoformat(vf),
+                    valid_to=date.fromisoformat(vt), uncertainty_pct=unc, region=region, method=method,
+                    is_active=True))
+            units.seed_conversions(db)
+            db.commit()
+
+
 if __name__ == "__main__":
     import os
     from database import DB_PATH

@@ -47,3 +47,21 @@ class ActivityCreateRequest(BaseModel):
     data_source: str = "invoice"
     data_quality: str = "primary"
     evidence_id: int | None = None
+
+
+class CompanySetupRequest(BaseModel):
+    company_name: str = Field(min_length=2)
+    country: str = Field(min_length=2, max_length=2)
+    entity_name: str = Field(min_length=2)
+
+
+class FacilityCreateRequest(BaseModel):
+    entity_id: int
+    name: str = Field(min_length=2)
+    city: str = Field(min_length=2)
+    country: str = Field(min_length=2, max_length=2)
+    facility_type: str = "manufacturing"
+
+
+class ResetDemoRequest(BaseModel):
+    confirmation: str
