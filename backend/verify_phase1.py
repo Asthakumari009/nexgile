@@ -156,13 +156,21 @@ def main() -> None:
     print(f"  [ok] factor version split: {len(on_v1)} calcs on EF-GRID-IN-01 (CEA 2023), "
           f"{len(on_v2)} on EF-GRID-IN-02 (CEA 2024)")
 
-    # 4. Equity-share consolidation is applied to the German entity only.
+    # 4. ONE consolidation basis governs the whole inventory (GHG Protocol), applied at
+    #    each entity's ownership share.
+    from models import Entity, Organization
+    org = db.scalar(select(Organization))
+    assert org.consolidation_method == "equity_share", org.consolidation_method
+    assert not hasattr(Entity, "consolidation_method"), \
+        "consolidation_method must live on the org, not per entity"
+    assert {c.allocation_basis for c in calcs} == {"equity share"}, \
+        {c.allocation_basis for c in calcs}
     de = [c for c in calcs if c.activity.facility.country == "DE"]
     inr = [c for c in calcs if c.activity.facility.country == "IN"]
     assert all(c.allocation_pct == 75.0 for c in de)
     assert all(c.allocation_pct == 100.0 for c in inr)
-    print(f"  [ok] allocation: {len(de)} DE calcs at 75% equity share, "
-          f"{len(inr)} IN calcs at 100% operational control")
+    print(f"  [ok] single consolidation basis '{org.consolidation_method}' org-wide: "
+          f"{len(de)} DE calcs at 75%, {len(inr)} IN calcs at 100% (wholly owned)")
 
     # 5. Scope 2 dual reporting exists for every electricity activity.
     elec = [a for a in activities if a.activity_type == "purchased_electricity"]
@@ -172,20 +180,42 @@ def main() -> None:
     print(f"  [ok] all {len(elec)} electricity activities dual-reported "
           f"(location + market based)")
 
-    # 6. The deliberate anomaly is present and large enough for a z-score to catch.
+    # 6. Series variance is realistic. Measured per series on the baseline, excluding the
+    #    deliberate anomaly - an outlier inflates CV, so including it would measure the
+    #    spike rather than the underlying variability.
+    import statistics
+    series = defaultdict(list)
+    for a in activities:
+        series[(facilities[a.facility_id].name, a.description)].append(
+            (a.period_start.strftime("%Y-%m"), a.quantity)
+        )
+    cvs = {}
+    for key, rows in series.items():
+        q = [v for m, v in sorted(rows)
+             if not (key == ("Pune Plant", "Natural gas, process boilers") and m == "2025-08")]
+        cvs[key] = statistics.pstdev(q) / statistics.fmean(q) * 100
+    lo_key, lo = min(cvs.items(), key=lambda kv: kv[1])
+    hi_key, hi = max(cvs.items(), key=lambda kv: kv[1])
+    out = {k: v for k, v in cvs.items() if not 12.0 <= v <= 18.0}
+    assert not out, out
+    print(f"  [ok] all {len(cvs)} activity series have CV in 12-18% "
+          f"(min {lo:.1f}% {lo_key[0]}, max {hi:.1f}% {hi_key[0]}, "
+          f"mean {statistics.fmean(cvs.values()):.1f}%)")
+
+    # 7. The deliberate anomaly stands out against that realistic baseline.
     pune = next(f for f in facilities.values() if f.name == "Pune Plant")
     gas = [a for a in activities
            if a.facility_id == pune.id and a.activity_type == "stationary_combustion"]
     aug = next(a for a in gas if a.period_start.strftime("%Y-%m") == "2025-08")
     others = [a.quantity for a in gas if a is not aug]
-    mean = sum(others) / len(others)
-    sd = (sum((q - mean) ** 2 for q in others) / len(others)) ** 0.5
+    mean = statistics.fmean(others)
+    sd = statistics.pstdev(others)
     z = (aug.quantity - mean) / sd
-    assert z > 2.0, z
+    assert 4.0 <= z <= 6.0, z
     print(f"  [ok] anomaly present: Pune gas Aug-2025 = {aug.quantity:,.0f} m3 "
-          f"vs mean {mean:,.0f} m3  (z = {z:.1f})")
+          f"vs baseline mean {mean:,.0f} m3 (sd {sd:,.0f})  z = {z:.2f}")
 
-    # 7. The deliberate data gaps are present for the data-quality panel.
+    # 8. The deliberate data gaps are present for the data-quality panel.
     munich = next(f for f in facilities.values() if f.name == "Munich Assembly")
     chennai = next(f for f in facilities.values() if f.name == "Chennai Warehouse")
     q4 = [a for a in activities if a.facility_id == munich.id and a.activity_type == "waste"
@@ -196,7 +226,7 @@ def main() -> None:
     print("  [ok] data gaps present: Munich waste Q4-2025 missing, "
           "Chennai refrigerant missing")
 
-    # 8. Evidence is on disk, hashed, and reachable from the calculation chain.
+    # 9. Evidence is on disk, hashed, and reachable from the calculation chain.
     from database import STORAGE_DIR
     from seed import EVIDENCE, EVIDENCE_LINKS
     linked = [a for a in activities if a.evidence_id is not None]
@@ -206,7 +236,7 @@ def main() -> None:
     print(f"  [ok] lineage bottom reachable: activity #{act.id} -> {doc.filename} "
           f"(sha256 {doc.sha256[:8]}...) on disk")
 
-    # 9. The document states the number the calculation consumed. If these ever drift,
+    # 10. The document states the number the calculation consumed. If these ever drift,
     #    the audit trail is decorative and the whole demo is a lie.
     import hashlib
     for a in linked:
@@ -216,7 +246,7 @@ def main() -> None:
     print(f"  [ok] all {len(linked)} evidence PDFs state the exact activity quantity "
           f"and match their stored sha256")
 
-    # 10. Data quality is mixed, so the confidence badges are not uniformly green.
+    # 11. Data quality is mixed, so the confidence badges are not uniformly green.
     mix = defaultdict(int)
     for a in activities:
         mix[a.data_quality] += 1

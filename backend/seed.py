@@ -8,7 +8,9 @@ grid so the recalculation banner has real work to do.
 from __future__ import annotations
 
 import hashlib
+import math
 import random
+import statistics
 from datetime import date, datetime, timedelta
 
 from sqlalchemy import select
@@ -134,14 +136,67 @@ DEPARTMENTS = {
 }
 
 
-def _seasonal(facility: str, country: str, activity_type: str, month: int) -> float:
+# Month-to-month noise is an AR(1) walk in log space rather than an independent draw per
+# month: real consumption drifts and the drift persists, which is what makes a meter
+# series look like a meter series rather than white noise around a mean.
+NOISE_RHO = 0.55
+NOISE_SIGMA = 0.112
+
+# Each series is then normalised to a target coefficient of variation drawn from this
+# band. Normalising rather than relying on the raw walk is deliberate: at n=24 the sample
+# CV of an unconstrained walk scatters roughly +/-5 points, so two thirds of the series
+# would land outside the band by chance. Rescaling in log space fixes the dispersion
+# while preserving the walk's autocorrelation and the seasonal shape on top of it.
+TARGET_CV = (0.13, 0.17)
+
+# The Pune Aug-2025 spike is specified in standard deviations of its own series baseline,
+# not as a multiplier, so its severity is stable no matter how the series is scaled. High
+# enough to flag reliably, low enough that the detector has to actually work for it.
+ANOMALY_Z = 5.0
+
+
+def _ar1_walk(rng: random.Random, n: int) -> list[float]:
+    walk, noise = [], 0.0
+    for _ in range(n):
+        noise = NOISE_RHO * noise + rng.gauss(0.0, NOISE_SIGMA)
+        walk.append(noise)
+    return walk
+
+
+def _rescale_cv(values: list[float], target_cv: float) -> list[float]:
+    """Scale a series' log-variance so its coefficient of variation hits target_cv.
+
+    Shape is preserved - every point keeps its position relative to the series mean, so
+    seasonality and the AR(1) drift both survive; only the amplitude changes.
+    """
+    logs = [math.log(v) for v in values]
+    mean_l = statistics.fmean(logs)
+    sd_l = statistics.pstdev(logs)
+    if sd_l == 0:
+        return list(values)
+    # For a lognormal, CV = sqrt(exp(sd_log^2) - 1). Invert for the log sd we need.
+    k = math.sqrt(math.log(1 + target_cv ** 2)) / sd_l
+    return [math.exp(mean_l + (l - mean_l) * k) for l in logs]
+
+
+def _inject_anomaly(values: list[float], index: int) -> list[float]:
+    """Set one point to ANOMALY_Z sigma above the mean of the rest of the series."""
+    rest = [v for i, v in enumerate(values) if i != index]
+    out = list(values)
+    out[index] = statistics.fmean(rest) + ANOMALY_Z * statistics.pstdev(rest)
+    return out
+
+
+def _seasonal(country: str, activity_type: str, month: int) -> float:
     """Deterministic seasonal shape - Indian summer cooling, German winter heating."""
     if activity_type == "purchased_electricity":
         if country == "IN":
             return {3: 1.16, 4: 1.22, 5: 1.24, 6: 1.15, 7: 1.06, 8: 1.05, 9: 1.03}.get(month, 1.0)
         return {11: 1.10, 12: 1.14, 1: 1.15, 2: 1.11}.get(month, 1.0)
     if activity_type == "stationary_combustion" and country == "DE":
-        return {10: 1.15, 11: 1.35, 12: 1.45, 1: 1.48, 2: 1.38, 3: 1.18}.get(month, 0.85)
+        # Damped relative to a real heating curve so the seasonal swing does not push
+        # this series' CV past the 18% ceiling once noise is layered on.
+        return {10: 1.06, 11: 1.12, 12: 1.16, 1: 1.18, 2: 1.13, 3: 1.07}.get(month, 0.94)
     return 1.0
 
 
@@ -312,14 +367,16 @@ def seed(db) -> None:
         baseline_year=2023,
         target_year=2030,
         target_reduction_pct=42.0,
+        consolidation_method="equity_share",
     )
     db.add(org)
     db.flush()
 
+    # Wholly owned, so equity share consolidates it at 100% anyway.
     india = Entity(org_id=org.id, name="Nexgile India Pvt Ltd", country="IN",
-                   ownership_pct=100.0, consolidation_method="operational_control")
+                   ownership_pct=100.0)
     europe = Entity(org_id=org.id, name="Nexgile Europe GmbH", country="DE",
-                    ownership_pct=75.0, consolidation_method="equity_share")
+                    ownership_pct=75.0)
     db.add_all([india, europe])
     db.flush()
 
@@ -414,21 +471,22 @@ def _seed_activities(db, by_name, depts, evidence, rng) -> list[ActivityData]:
                 dept_name = "Logistics" if dept_name == "Logistics" else "Operations"
             dept = depts.get((fname, dept_name)) if dept_name else None
 
-            for year, month in MONTHS:
-                # Gap: Munich has no Scope 3 waste data for Q4 2025.
-                if fname == "Munich Assembly" and activity_type == "waste" \
-                        and year == 2025 and month >= 10:
-                    continue
+            # Gap: Munich has no Scope 3 waste data for Q4 2025.
+            gap = (lambda y, m: fname == "Munich Assembly" and activity_type == "waste"
+                   and y == 2025 and m >= 10)
+            months = [(y, m) for y, m in MONTHS if not gap(y, m)]
 
-                shape = _seasonal(fname, facility.country, activity_type, month)
-                jitter = 1.0 + rng.uniform(-0.07, 0.07)
-                qty = base * shape * jitter
+            # The AR(1) walk runs over all 24 months even where a row is suppressed, so a
+            # data gap does not shift the series that surrounds it.
+            walk = _ar1_walk(rng, len(MONTHS))
+            raw = [base * _seasonal(facility.country, activity_type, m) * math.exp(w)
+                   for (y, m), w in zip(MONTHS, walk) if not gap(y, m)]
+            qtys = _rescale_cv(raw, rng.uniform(*TARGET_CV))
 
-                # Deliberate anomaly the z-score detector must catch live.
-                if fname == "Pune Plant" and activity_type == "stationary_combustion" \
-                        and (year, month) == (2025, 8):
-                    qty = base * 3.2
+            if fname == "Pune Plant" and activity_type == "stationary_combustion":
+                qtys = _inject_anomaly(qtys, months.index((2025, 8)))
 
+            for (year, month), qty in zip(months, qtys):
                 n += 1
                 # Keep the quality badges honest rather than uniformly green.
                 q, src = quality, source
@@ -454,10 +512,11 @@ def _seed_activities(db, by_name, depts, evidence, rng) -> list[ActivityData]:
 
         # Refrigerant top-ups, quarterly. Chennai is a deliberate gap.
         if fname in FUGITIVE:
-            for year, month in MONTHS:
-                if month not in (3, 6, 9, 12):
-                    continue
-                qty = FUGITIVE[fname] * (1.0 + rng.uniform(-0.15, 0.15))
+            quarters = [(y, m) for y, m in MONTHS if m in (3, 6, 9, 12)]
+            walk = _ar1_walk(rng, len(quarters))
+            qtys = _rescale_cv([FUGITIVE[fname] * math.exp(w) for w in walk],
+                               rng.uniform(*TARGET_CV))
+            for (year, month), qty in zip(quarters, qtys):
                 start = date(year, month, 1)
                 end = date(year + (month == 12), (month % 12) + 1, 1) - timedelta(days=1)
                 a = ActivityData(

@@ -25,13 +25,13 @@ _CONSOLIDATION_BASIS = {
 
 
 def _allocation(activity: ActivityData) -> tuple[str, float]:
+    """One consolidation approach governs the whole inventory - it lives on the org."""
     entity = activity.facility.entity
-    if entity.consolidation_method == "operational_control":
-        pct = 100.0
-    else:
-        pct = entity.ownership_pct
-    basis = _CONSOLIDATION_BASIS.get(entity.consolidation_method, entity.consolidation_method)
-    return basis, pct
+    method = entity.org.consolidation_method
+    # Control approaches consolidate 100% of a controlled entity; equity share
+    # consolidates the ownership percentage.
+    pct = 100.0 if method in ("operational_control", "financial_control") else entity.ownership_pct
+    return _CONSOLIDATION_BASIS.get(method, method), pct
 
 
 def _fmt(value: float) -> str:

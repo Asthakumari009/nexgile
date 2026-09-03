@@ -16,6 +16,9 @@ class Organization(Base):
     baseline_year: Mapped[int] = mapped_column(Integer)
     target_year: Mapped[int] = mapped_column(Integer)
     target_reduction_pct: Mapped[float] = mapped_column(Float)
+    # GHG Protocol requires ONE consolidation approach across the whole inventory, so it
+    # belongs to the organization, never to the individual entity.
+    consolidation_method: Mapped[str] = mapped_column(String, default="equity_share")
 
     entities: Mapped[list["Entity"]] = relationship(back_populates="org")
 
@@ -27,7 +30,6 @@ class Entity(Base):
     name: Mapped[str] = mapped_column(String)
     country: Mapped[str] = mapped_column(String)
     ownership_pct: Mapped[float] = mapped_column(Float)
-    consolidation_method: Mapped[str] = mapped_column(String)
 
     org: Mapped["Organization"] = relationship(back_populates="entities")
     facilities: Mapped[list["Facility"]] = relationship(back_populates="entity")
