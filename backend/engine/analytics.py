@@ -127,6 +127,17 @@ def totals(db: Session, *, approved_only: bool = False) -> dict:
     """Headline KPI figures. One pass, so the dashboard is one request for the top row."""
     rows = _rows(db, approved_only=approved_only)
     all_rows = _rows(db)
+    facility = db.scalars(select(Facility)).first()
+    if facility is None:
+        return {
+            "gross_tco2e": 0.0, "by_scope": {"scope1": 0.0, "scope2": 0.0, "scope3": 0.0},
+            "latest_year": None, "latest_year_tco2e": 0.0, "prior_year_tco2e": 0.0,
+            "yoy_change_pct": None, "baseline_year": None, "baseline_is_proxy": False,
+            "baseline_tco2e": 0.0, "target_year": 2030, "target_reduction_pct": 0.0,
+            "target_tco2e": 0.0, "vs_target_pct": None, "primary_data_pct": 0.0,
+            "record_count": 0, "approved_pct": 0.0, "consolidation": "not configured",
+            "organization": "Set up your company to begin reporting",
+        }
     gross = sum(e.tco2e for e, _ in rows)
     by_scope = defaultdict(float)
     quality = defaultdict(int)
@@ -134,7 +145,7 @@ def totals(db: Session, *, approved_only: bool = False) -> dict:
         by_scope[e.scope] += e.tco2e
         quality[e.data_quality] += 1
 
-    org = db.scalars(select(Facility)).first().entity.org
+    org = facility.entity.org
     months = sorted({e.period_month for e, _ in rows})
     latest_year = months[-1][:4] if months else None
     baseline_year = str(org.baseline_year)
