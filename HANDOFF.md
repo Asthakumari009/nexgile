@@ -106,6 +106,7 @@ curl localhost:8000/api/v1/emissions/37/lineage
 - If Phase 3 is not done by the 1:55 mark, stop adding pages and polish the dashboard and lineage panel only.
 - **Open gap:** emission 38's market-based claim rests on the REC certificate, but the lineage shows the electricity invoice, because `evidence_id` lives on `activity_data` and both calculations share one activity. `REC_Certificate_FY2025_Hyderabad.pdf` is seeded but unreferenced. Linking evidence per calculation needs a schema change — decide whether it is worth it before an auditor-minded evaluator asks.
 - **Deploy placeholder:** `frontend/vercel.json` and `portal/vercel.json` both contain `REPLACE-WITH-YOUR-RENDER-URL.onrender.com`. Both must be edited before a Vercel deploy will reach the API.
+- **Render Root Directory must be blank.** The blueprint originally used `rootDir: backend`, which did not apply and failed the build with `Could not open requirements file`. Everything is now repo-root relative: a root `requirements.txt` shims to `backend/requirements.txt`, and the start command uses `uvicorn --app-dir backend`. Setting Root Directory to `backend` re-breaks it.
 - **Render free tier is ephemeral.** `decarbx.db` and `./storage/` rebuild on every cold start. Harmless because the seed is deterministic, but the first request after a cold start pays the seeding cost.
 
 ## Honesty constraint

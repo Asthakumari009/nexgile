@@ -1,14 +1,18 @@
 # Render blueprint for the FastAPI backend.
 # The two frontends deploy to Vercel separately - see frontend/vercel.json and
 # portal/vercel.json.
+#
+# Everything here is relative to the REPO ROOT, so the service's "Root Directory"
+# setting must be left BLANK. uvicorn --app-dir puts backend/ on the import path;
+# the app resolves its own paths from __file__, so the working directory does not
+# matter.
 services:
   - type: web
     name: nexgile-decarbx-api
     runtime: python
     plan: free
-    rootDir: backend
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn main:app --app-dir backend --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health
     envVars:
       - key: PYTHON_VERSION

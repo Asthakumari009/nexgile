@@ -109,10 +109,18 @@ Backend on Render, each frontend as its own Vercel project.
 **Backend (Render).** `render.yaml` at the repo root is a blueprint — point Render at the
 repo and it picks it up, or create a Web Service manually with:
 
-- Root directory `backend`
-- Build `pip install -r requirements.txt`
-- Start `uvicorn main:app --host 0.0.0.0 --port $PORT`
-- Health check `/api/v1/health`
+| Field | Value |
+|---|---|
+| Root Directory | **leave blank** |
+| Build Command | `pip install -r requirements.txt` |
+| Start Command | `uvicorn main:app --app-dir backend --host 0.0.0.0 --port $PORT` |
+| Health Check Path | `/api/v1/health` |
+
+Everything is relative to the repo root, so **Root Directory must be empty**. A root
+`requirements.txt` shims to `backend/requirements.txt`, and `--app-dir` puts `backend/`
+on the import path. The app resolves its own paths from `__file__`, so the working
+directory does not matter. If Root Directory is set to `backend`, the build fails with
+`Could not open requirements file`.
 
 **Frontends (Vercel).** Create two projects from the same repo, with **Root Directory**
 set to `frontend` and `portal` respectively. Each has its own `vercel.json`.
